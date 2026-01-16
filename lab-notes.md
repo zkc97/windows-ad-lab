@@ -7,6 +7,12 @@ It is updated incrementally as changes are made.
 
 ## Initial Setup
 
+### Host Environment
+- Host OS: Windows
+- CPU: AMD Ryzen 9
+- RAM: 32GB
+- Hypervisor: VMware Workstation Pro
+
 ### Virtualization
 - Created a Windows Server 2022 virtual machine using VMware Workstation Pro
 - Chose manual installation (Install OS Later) to retain full control over setup
