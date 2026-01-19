@@ -24,7 +24,10 @@ I started by manually creating accounts for Accounting (Kevin Malone, Angela Mar
 ### Scaling with PowerShell
 Once I got the hang of the manual process, I used PowerShell ISE to bulk-import the Sales and HR teams (Michael, Dwight, Jim, and Pam). 
 - **The Logic:** I wrote a loop that handled the UPN, job titles, and forced a password change on the first login. It’s way faster than clicking through the UI dozens of times once the company starts growing.
-
+- 
+### Visual Proof
+![Active Directory Hierarchy](images/ad-hierarchy-phase2.png)
+![PowerShell Script Execution](images/powershell-user-script.png)
 ---
 
 ## The "Logon Battle" Troubleshooting
