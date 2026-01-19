@@ -1,30 +1,25 @@
-# Windows Active Directory Home Lab
+# ZackLab: Windows AD Home Lab
 
-> This lab is actively evolving as functionality and scenarios are added.
+This is my personal lab where I'm building a simulated corporate network (`zacklab.local`) to get hands-on with Active Directory and PowerShell.
 
-## Goal
-Build and maintain a Windows Server Active Directory environment to understand domain services, identity management, and basic enterprise networking.
+## The Setup
+* **Physical PC:** My main Windows 11 Pro desktop (Ryzen 9 7900X / 32GB DDR5).
+* **Hypervisor:** VMware Workstation Pro running on the Win 11 host.
+* **The VM:** A single Windows Server 2022 instance acting as the Domain Controller.
+* **Networking:** Isolated NAT for now (so I don't mess with my home internet).
 
-## Environment
-- Hypervisor: VMware Workstation Pro
-- Domain Controller OS: Windows Server 2022
-- Client OS: Windows 11 Pro
-- Network: NAT (isolated from physical LAN)
+## What's Done
+* **The DC:** Got the Domain Controller up and running.
+* **The Structure:** Built out the OUs for the "Company" (Accounting, IT, Sales, and HR).
+* **Users:** Added a bunch of users. I did some manually to learn the attributes, then switched to PowerShell to bulk-add the rest.
+* **GPO Battle:** Spent way too long fighting a GPO that wouldn't let users log in. Finally won by forcing the policy and using a few group workarounds to verify it.
 
-## Current State
-- Domain controller installed
-- Active Directory Domain Services configured
-- Domain created and verified
+## What I'm Doing Next
+* **Security Groups:** Setting up the AGDLP model so I stop managing users one-by-one.
+* **File Shares:** Making departmental folders where users actually have restricted access.
+* **Win11 Clients:** Adding workstations so I can actually test the user experience.
 
-
-## Planned Enhancements
-- Create initial users and organizational units
-- Group Policy configuration and testing
-- Join Windows client machines to domain
-- File server and NTFS permissions
-- Password and account policy scenarios
-
-## What I’m Learning
-- Active Directory structure and roles
-- DNS and domain dependencies
-- Foundational user and group management concepts
+## The Big Takeaways (So Far)
+* PowerShell is a massive time-saver for bulk tasks.
+* DNS is usually the reason why AD is breaking.
+* GPOs don't always apply as fast as you want them to.
