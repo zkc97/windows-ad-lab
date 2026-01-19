@@ -1,6 +1,6 @@
 # ZackLab: Windows AD Home Lab
 
-This is my personal lab where I'm building a simulated corporate network (`zacklab.local`) to get hands-on with Active Directory and PowerShell.
+This is my personal lab where I'm building a simulated corporate network (`zacklab.local`) to get hands-on experience with Active Directory and PowerShell.
 
 ## The Setup
 * **Physical PC:** My main Windows 11 Pro desktop (Ryzen 9 7900X / 32GB DDR5).
@@ -11,8 +11,8 @@ This is my personal lab where I'm building a simulated corporate network (`zackl
 ## What's Done
 * **The DC:** Got the Domain Controller up and running.
 * **The Structure:** Built out the OUs for the "Company" (Accounting, IT, Sales, and HR).
-* **Users:** Added a bunch of users. I did some manually to learn the attributes, then switched to PowerShell to bulk-add the rest.
-* **GPO Battle:** Spent way too long fighting a GPO that wouldn't let users log in. Finally won by forcing the policy and using a few group workarounds to verify it.
+* **Users:** Added several users. I did some manually to learn the attributes, then switched to PowerShell to bulk-add the rest.
+* **GPO Battle:** Spent a lot of time fighting a GPO that wouldn't let standard users log in. Finally fixed it by forcing the policy and using a few group workarounds to verify it.
 
 ## What I'm Doing Next
 * **Security Groups:** Setting up the AGDLP model so I stop managing users one-by-one.
