@@ -24,21 +24,31 @@ I started by manually creating accounts for Accounting (Kevin Malone, Angela Mar
 ### Scaling with PowerShell
 Once I got the hang of the manual process, I used PowerShell ISE to bulk-import the Sales and HR teams (Michael, Dwight, Jim, and Pam). 
 - **The Logic:** I wrote a loop that handled the UPN, job titles, and forced a password change on the first login. It’s way faster than clicking through the UI dozens of times once the company starts growing.
-- 
+  
 ### Visual Proof
 ![Active Directory Hierarchy](images/ad-hierarchy-phase2.png)
 ![PowerShell Script Execution](images/powershell-user-script.png)
+![Static IP setting](images/static_ip.png)
+
 ---
 
-## The "Logon Battle" Troubleshooting
+## Troubleshooting: The Internet & Subnet Headache
+While I was verifying the new accounts, I realized the DC was totally offline—no internet, and the DNS forwarders were just timing out.
+
+* **The Problem:** I found a subnet mismatch. I had the DC set to **192.168.10.10**, but VMware’s NAT service was trying to run everything on the `192.168.153.x` range. They weren't even on the same "street."
+* **The Fix:** I had to go into the **VMware Virtual Network Editor** and manually force the Subnet IP to `192.168.10.0` so it would actually talk to my VM.
+* **The DHCP Trap:** While I was messing with it, Windows "fixed" the connection by enabling DHCP, which immediately wiped out my static IP and broke the domain's brain. I had to go back in, kill DHCP, re-apply **192.168.10.10**, and point the Preferred DNS back to the loopback (`127.0.0.1`).
+* **The Result:** It’s finally stable. Pings to `8.8.8.8` are solid, and `nslookup google.com` is resolving perfectly through the forwarders.
+
+---
+
+## Troubleshooting: The "Logon Battle"
 I hit a major wall trying to get standard users to log into the DC for testing. Even after editing the "Allow log on locally" policy in the GPO, the server kept kicking me out with a "Method not allowed" error.
 
 **How I fixed it:**
 1. **The GPO Fight:** I tried running `gpupdate /force` about a dozen times, but the settings wouldn't "stick." I used `rsop.msc` and saw the local security policy was still winning over my domain changes.
 2. **The "Nuclear" Fix:** I went into the GPMC and **Enforced** the Default Domain Controllers Policy, then did a full server restart to clear the cache.
-3. **The Workaround:** When it still wouldn't let me in right away, I used a classic SysAdmin trick to verify the identity was working. I added Kevin Malone to the **Print Operators** group. Since that group has hard-coded rights to log into DCs, it bypassed the GPO hang-up immediately. It proved the domain was healthy and the issue was just the policy taking its sweet time to apply.
-
-
+3. **The Workaround:** I used a classic SysAdmin trick to verify the identity was working by adding Kevin Malone to the **Print Operators** group. Since that group has hard-coded rights to log into DCs, it bypassed the GPO hang-up immediately and proved the domain was healthy.
 
 ---
 
