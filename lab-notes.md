@@ -52,9 +52,160 @@ I hit a major wall trying to get standard users to log into the DC for testing. 
 
 ---
 
-## Phase 3: Security Groups & File Shares (In Progress)
-- **Status:** Identities are verified and the OU structure is 100% functional.
-- **Next Up:** Moving into the **AGDLP model** (Account > Global > Domain Local > Permissions) to set up departmental file shares and restricted access.
+## Phase 3: Security Groups & File Shares (AGDLP)
+
+With identity and structure locked in, I moved into what I consider the real core of Active Directory: access control.  
+The goal of this phase was to understand (and prove) how Windows decides whether a user should be allowed to access a resource — using groups, not individual users.
+
+I followed the AGDLP model throughout:
+
+- **A**ccounts (users)
+- **G**lobal groups (department membership)
+- **D**omain **L**ocal groups (resource access)
+- **P**ermissions (NTFS + share)
+
+
+Users never touch permissions directly. Groups do.
+
+---
+
+### Departmental Share Design
+
+I created a central share structure at: C:\Shares
+
+
+Each department received its own folder:
+- Accounting
+- HR
+- IT
+- Sales
+
+For every department, I used the same group pattern:
+- `GG_<Dept>_Users` (Global)
+- `DL_<Dept>_Files_RW` (Domain Local – Modify)
+- `DL_<Dept>_Files_RO` (Domain Local – Read)
+
+Global groups represent *who someone is*.  
+Domain Local groups represent *what they can touch*.
+
+---
+
+### Accounting (Manual Build & Validation)
+
+I started with Accounting to fully understand the mechanics before repeating the pattern.
+
+Steps:
+- Created Global and Domain Local groups
+- Added Accounting users to `GG_Accounting_Users`
+- Nested `GG_Accounting_Users` into `DL_Accounting_Files_RW`
+- Assigned:
+  - **Share permissions:** Change (RW), Read (RO)
+  - **NTFS permissions:** Modify (RW), Read & Execute (RO)
+
+I validated everything using **Advanced Security → Effective Access**.  
+Once the group nesting and NTFS permissions were wired correctly, Kevin Malone showed Modify access without being granted Full Control — exactly as intended.
+
+### Visual Proof
+![Effective Access Screenshot Accounting](images/phase3-effective-access-accounting.png)
+
+
+---
+
+### HR (Manual Build + Effective Access Quirk)
+
+I repeated the same AGDLP model for HR.
+
+While testing, I hit a confusing situation where Effective Access initially showed no permissions, then showed the correct permissions minutes later — without any configuration changes.
+
+Key takeaway:
+- **Effective Access is a diagnostic estimate**, not a live enforcement engine
+- It recalculates group nesting on demand
+- A failed evaluation can show “deny” even when the ACL is correct
+
+Re-running the test correctly showed Pam Beesly’s access to the HR share.
+
+---
+
+### IT (Manual Implementation)
+
+I manually implemented IT using the same model to confirm it scaled cleanly:
+- No direct user permissions
+- No cross-department access
+- Only IT groups present on the IT folder
+
+By this point, the process was fully repeatable.
+
+---
+
+### Sales (Automated Implementation)
+
+Once the pattern was proven, I automated the Sales department to confirm the design was scalable.
+
+The automation:
+- Created Sales Global and Domain Local groups
+- Nested groups following AGDLP
+- Bulk-added Sales users from the Sales OU
+- Created the Sales folder and SMB share
+- Applied correct Share and NTFS permissions
+
+The setup completed in seconds and matched the manually created departments exactly.
+
+I intentionally did not include the automation script in the repository to keep the focus on access-control design rather than code.
+
+---
+
+---
+
+## Troubleshooting: Permissions That Look Right (But Aren’t)
+
+Most of the issues in this phase weren’t caused by things being broken — they were caused by things being *incomplete*.
+
+A few key problems I ran into:
+
+* **Users with zero access despite being “in the right place.”**  
+  I initially populated Global groups but forgot that they don’t grant access on their own. Until the Global group was nested into the correct Domain Local group *and* that group was present on the NTFS ACL, access was correctly denied.
+
+* **Share permissions without NTFS permissions (and vice versa).**  
+  More than once, I had one side configured correctly and the other missing. Windows requires both to allow access, and Effective Access made it very obvious when one side was missing.
+
+* **Effective Access giving conflicting results.**  
+  I saw cases where Effective Access showed no permissions, then showed the correct permissions minutes later without any configuration changes. This reinforced that Effective Access is a diagnostic estimate, not a live enforcement engine, and shouldn’t be trusted blindly.
+
+* **Unexpected cross-department permissions.**  
+  I noticed HR groups appearing on Sales and IT folders. The cause was permission inheritance or copied ACLs from the `C:\Shares` parent folder. Cleaning the parent ACL and explicitly defining permissions per department fixed the issue and prevented future leakage.
+
+Once I slowed down and traced access from user → global group → domain local group → NTFS/share, the problems became predictable and easy to fix.
+
+
+---
+
+### Phase 3 Outcome
+
+At this point, I’m confident I understand how Windows actually evaluates access.
+
+Permissions are working exactly how they should:
+- Users never have permissions directly
+- All access flows through groups
+- NTFS + Share permissions both matter
+- Group nesting mistakes immediately break access (and are easy to trace once you know where to look)
+
+I was able to build departments manually, troubleshoot broken access, and then automate the same design once it was proven. Nothing in this phase works by accident anymore — if access is denied, I know where to look and why.
+
+This was easily the most frustrating phase so far, but also the one that made Active Directory finally “click.”
+
+
+---
+
+## Phase 4: Windows 11 Workstation Integration (Next)
+
+Next steps:
+- Join a Windows 11 Pro workstation to `zacklab.local`
+- Log in as standard users from different departments
+- Validate real-world file access and denial
+- Observe token refresh behavior vs Effective Access
+- Prepare for Group Policy testing (drive mapping, basic UX controls)
+
+
 
 ---
 
