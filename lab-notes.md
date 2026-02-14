@@ -196,10 +196,10 @@ This was easily the most frustrating phase so far, but also the one that made Ac
 
 ---
 
-## Phase 4: Windows 11 Workstation Integration (Next)
+## Phase 4: Second Windows client Integration (Next)
 
 Next steps:
-- Join a Windows 11 Pro workstation to `zacklab.local`
+- Join a second Windows client to `zacklab.local`
 - Log in as standard users from different departments
 - Validate real-world file access and denial
 - Observe token refresh behavior vs Effective Access
