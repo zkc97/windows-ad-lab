@@ -196,18 +196,92 @@ This was easily the most frustrating phase so far, but also the one that made Ac
 
 ---
 
-## Phase 4: Second Windows client Integration (Next)
+## Phase 4: Windows Client Integration
 
-Next steps:
-- Join a second Windows client to `zacklab.local`
-- Log in as standard users from different departments
-- Validate real-world file access and denial
-- Observe token refresh behavior vs Effective Access
-- Prepare for Group Policy testing (drive mapping, basic UX controls)
+Today I spun up a second VM running **Windows 11 Pro** and joined it to the `zacklab.local` domain to start validating everything from a real client perspective.
 
+### The Build
+- Installed Windows 11 Pro manually (no Microsoft account, local admin only).
+- Confirmed NAT networking worked.
+- Set DNS manually to `192.168.10.10` (DC).
+- Verified domain resolution with `nslookup zacklab.local`.
+- Successfully joined the domain.
 
+### The Logon Issue (And Why It Broke)
+
+After joining the domain, I tried logging in as `amartin` and got:
+
+> “The sign-in method you're trying to use isn't allowed.”
+
+Domain Admin login worked fine, which told me:
+- The trust was good.
+- DNS was good.
+- Authentication was working.
+
+So the issue had to be authorization.
+
+I used `rsop.msc` on the Windows 11 machine and found that **Default Domain Policy** was defining “Allow log on locally,” and it did NOT include `Users` or `Domain Users`.
+
+At some point earlier, I had modified this setting while troubleshooting DC logon behavior. Because User Rights Assignment is a *replace* setting in GPO, it overwrote the default workstation behavior.
+
+### The Fix
+- Opened **Default Domain Policy** in GPMC.
+- Navigated to:
+  ```
+  Computer Configuration → Policies → Windows Settings → Security Settings → Local Policies → User Rights Assignment
+  ```
+- Added `Users` back to **Allow log on locally**.
+- Ran `gpupdate /force` on the Windows 11 machine.
+- Rebooted.
+- Verified via `rsop.msc` that the winning GPO now included `Users`.
+
+After that, `ZACKLAB\amartin` logged in successfully.
+
+That was a real lesson in:
+- GPO scope
+- Precedence
+- User Rights Assignment behavior
+- Authentication vs authorization
+
+### Validating AGDLP From A Real Client
+
+Once logged in as `amartin` (Accounting):
+
+- She could access the **Accounting** share.
+- She could NOT access **Sales** (as expected).
+
+Then I tested token behavior:
+
+1. While logged in, I added `amartin` to the Sales Global group.
+2. Tried accessing Sales — still denied.
+3. Logged out and back in.
+4. Access worked.
+
+That confirmed:
+- Group membership is stamped into the token at logon.
+- Tokens do not dynamically update mid-session.
+- Logoff/logon regenerates the token.
+
+Everything from Phase 3 is now validated from a real workstation.
+
+---
+
+## Phase 4 Status
+
+- Windows 11 client deployed.
+- Domain join successful.
+- Logon rights issue identified and fixed properly (not hacked around).
+- AGDLP confirmed working from client side.
+- Token refresh behavior demonstrated live.
+
+Next:
+- Drive mapping via GPO.
+- Additional workstation-level policies.
+- Then move toward Phase 5 (expanding beyond isolated NAT).
 
 ---
 
 ## Notes & Known Issues
-- **Internet Access:** Standard users currently don't have internet on the DC (expected due to IE Enhanced Security). I'll deal with this once we move to the Workstation/Networking phase.
+- DC still uses IE Enhanced Security (expected).
+- No workstation GPO structure yet — currently everything flows from Default Domain Policy.
+- Need to cleanly separate DC vs Workstation policy before expanding further.
