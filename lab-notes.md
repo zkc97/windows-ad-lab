@@ -154,7 +154,6 @@ I intentionally did not include the automation script in the repository to keep 
 
 ---
 
----
 
 ## Troubleshooting: Permissions That Look Right (But Aren’t)
 
@@ -266,22 +265,143 @@ Everything from Phase 3 is now validated from a real workstation.
 
 ---
 
-## Phase 4 Status
 
-- Windows 11 client deployed.
-- Domain join successful.
-- Logon rights issue identified and fixed properly (not hacked around).
-- AGDLP confirmed working from client side.
-- Token refresh behavior demonstrated live.
+## Phase 5: Workstation GPO Cleanup
+
+This phase was about finally cleaning up the Windows side of the lab so it felt less like "everything is happening everywhere" and more like an actual managed environment.
+
+Up to this point, I had already proven the domain join, user logons, AGDLP access, and token behavior from a real Windows 11 client. What was still missing was a cleaner workstation policy structure and some actual user/computer-level Group Policy testing.
+
+### Creating A Real Workstations OU
+
+The first thing I did was stop relying on the default `Computers` container and create a dedicated `Workstations` OU under `ZackLab_Corp`.
+
+Then I moved my Windows 11 client object (`W11-CL01`) into it.
+
+That was a small change, but an important one. It gave me a clean place to scope workstation-specific policies without mixing them into the rest of the domain.
+
+### Building Out The GPO Structure
+
+Once the workstation had its own OU, I created three new GPOs:
+
+- `ZL-Workstation-Baseline`
+- `ZL-User-Environment`
+- `ZL-Drive-Mapping`
+
+I linked:
+- `ZL-Workstation-Baseline` to the `Workstations` OU
+- `ZL-User-Environment` to `ZackLab_Corp`
+- `ZL-Drive-Mapping` to `ZackLab_Corp`
+
+This was the point where the lab finally started feeling more organized. Instead of continuing to pile settings into broad/default policy, I now had separate GPOs for:
+- workstation computer settings
+- user environment settings
+- mapped drives
+
+That separation alone was a huge improvement over where the lab was at the end of Phase 4.
+
+### Workstation Baseline Test
+
+For the first workstation policy test, I configured an interactive logon message through `ZL-Workstation-Baseline`.
+
+The goal here was simple: prove that a computer-side GPO linked to the new `Workstations` OU was actually applying to the Windows 11 client.
+
+At first, I thought the policy was failing, but this turned out to be a good reminder of how easy it is to test the wrong thing in Active Directory. I initially restarted the wrong machine, then verified with `gpresult /r` that the workstation GPO actually was applying to `W11-CL01`.
+
+The reason the message still was not appearing came down to a small configuration mistake on my end: I had entered the message text, but left the message title blank. Once I corrected that, ran `gpupdate /force`, and restarted the client, the logon banner appeared as expected.
+
+That was a good lesson in two things:
+- GPO scope only matters on the correct target
+- when a policy "isn't working," it may actually be applying correctly and just be configured wrong
+
+### Visual Proof
+![Phase 5 Workstation Logon Banner](images/phase5-workstation-gpo-logon-message.png)
+
+---
+
+### Drive Mapping Through Group Policy Preferences
+
+After that, I moved on to drive mapping, which was one of the main goals for this phase.
+
+Using the `ZL-Drive-Mapping` GPO, I created a mapped drive for the Accounting share:
+
+- `A:` → `\\DC-01\Accounting`
+
+I scoped it using **Item-level Targeting** so it only applied if the logged-in user was a member of:
+
+- `GG_Accounting_Users`
+
+Before setting up the policy, I manually confirmed that `amartin` could reach `\\DC-01\Accounting` from the Windows 11 client. I had to reset her password first because I had forgotten it, which honestly felt pretty realistic for help desk work.
+
+Once the path was confirmed, I signed in as `amartin`, forced policy refresh, signed back in, and the mapped `A:` drive appeared successfully.
+
+That was probably the most practical GPO in the whole phase because it tied together:
+- user-side policy processing
+- security group targeting
+- share access
+- real client validation
+
+### Visual Proof
+![Phase 5 Accounting Drive Mapping](images/phase5-drive-mapping-accounting-share.png)
+
+---
+
+### User Environment Wallpaper Test
+
+For the user environment GPO, I wanted something visual and easy to verify, so I tested desktop wallpaper deployment.
+
+I created a shared folder on the domain controller to host the image and used a Milwaukee Brewers March 2026 wallpaper as the test file. I framed it like a simple internal seasonal desktop deployment just to make the lab feel a little less generic.
+
+The wallpaper policy was configured through `ZL-User-Environment` using the UNC path to the shared image.
+
+Visually, the result on the Windows 11 client was a black background instead of the image itself. At first that looked like a failure, but after checking the registry I confirmed the wallpaper policy had actually applied correctly and was pointing to the expected shared JPG.
+
+So the GPO itself worked. The issue was the visible result on the lab workstation, most likely because the Windows 11 VM is not activated and has personalization limitations.
+
+That ended up being useful in its own way because it showed that:
+- policy application and visible user experience are not always the same thing
+- registry validation can prove a policy is applying even when the screen result looks wrong
+
+### Visual Proof
+![Phase 5 Wallpaper Policy Registry Proof](images/phase5-user-environment-wallpaper-registry-proof.png)
+
+
+
+### Phase 5 Outcome
+
+This phase cleaned up the Windows side of the lab a lot.
+
+At the end of it, I now have:
+- a dedicated `Workstations` OU
+- a domain-joined Windows 11 client properly scoped for workstation policy
+- a working computer-side baseline GPO
+- a working drive mapping GPO targeted by security group
+- a user-environment wallpaper GPO that applied successfully even though the client displayed a black background
+
+This was a much more "real world" phase than I expected. It was less about building something flashy and more about understanding where policy lives, who it targets, how it applies, and how to prove whether it worked.
+
+---
+
+## Phase 5 Status
+
+- `Workstations` OU created.
+- `W11-CL01` moved out of the default `Computers` container.
+- Workstation GPO structure separated from broad/default policy.
+- Interactive logon banner successfully deployed through `ZL-Workstation-Baseline`.
+- Accounting share mapped automatically through `ZL-Drive-Mapping`.
+- Wallpaper policy applied through `ZL-User-Environment` and confirmed in registry.
+- Windows side of the lab is now much cleaner and more manageable than it was in Phase 4.
 
 Next:
-- Drive mapping via GPO.
-- Additional workstation-level policies.
-- Then move toward Phase 5 (expanding beyond isolated NAT).
+- Add non-Windows devices to the ZackLab network.
+- Test access behavior from macOS and Linux/Chromebook.
+- Document what works, what breaks, and what differs from the Windows client experience.
 
 ---
 
 ## Notes & Known Issues
-- DC still uses IE Enhanced Security (expected).
-- No workstation GPO structure yet — currently everything flows from Default Domain Policy.
-- Need to cleanly separate DC vs Workstation policy before expanding further.
+
+- The Windows 11 lab client is still unactivated, which appears to affect wallpaper rendering/personalization behavior.
+- The wallpaper GPO applied correctly, but the desktop displayed a black background instead of the shared image.
+- Only the Accounting drive map was fully tested in this phase because the goal was to prove the design.
+- NAT networking remains in place for now. I chose not to move to bridged networking yet because it would add complexity without helping the project enough at this stage.
