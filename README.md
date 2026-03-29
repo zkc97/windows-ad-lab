@@ -1,43 +1,62 @@
 # ZackLab: Windows AD Home Lab
 
-This is my personal lab where I'm building a simulated corporate network (`zacklab.local`) to get hands-on experience with Active Directory, Group Policy, and PowerShell.
+This is my personal lab where I built out a simulated corporate network (`zacklab.local`) to get hands-on practice with Active Directory, Group Policy, PowerShell, and general Windows administration.
 
 ## The Setup
-* **Physical PC:** Windows 11 Pro desktop (Ryzen 9 7900X / 32GB DDR5).
-* **Hypervisor:** VMware Workstation Pro running on the Win 11 host.
-* **Domain Controller:** Windows Server 2022 VM acting as the DC.
-* **Client VM:** Windows 11 Pro workstation joined to the domain.
-* **Networking:** Isolated NAT (intentionally kept off my home LAN for now).
+* **Physical PC:** Windows 11 Pro desktop (Ryzen 9 7900X / 32GB DDR5)
+* **Hypervisor:** VMware Workstation Pro
+* **Domain Controller:** Windows Server 2022 VM
+* **Client VM:** Windows 11 Pro workstation joined to the domain
+* **Linux VM:** Kali Linux VM used for non-Windows access testing
+* **Networking:** Isolated NAT, kept off my home LAN on purpose
 
 ## What's Done
-* **The DC:** Got the Domain Controller up and running.
-* **The Structure:** Built out the OUs for the "Company" (Accounting, IT, Sales, and HR).
-* **Users:** Added several users. Did some manually to learn the attributes, then switched to PowerShell to bulk-add the rest.
-* **Security Groups (AGDLP):** Implemented Global and Domain Local groups for each department.
-* **File Shares:** Created departmental file shares with proper NTFS + share permissions (RW / RO), assigned only through groups.
-* **Workstation Join:** Deployed a Windows 11 client VM and successfully joined it to the domain.
-* **Logon Issue:** Hit a “sign-in method not allowed” error for standard users. Traced it back to a User Rights Assignment setting in Default Domain Policy using `rsop.msc`, fixed the GPO, forced an update, and confirmed normal logons.
-* **Access Validation:** Logged in as department users from the workstation and confirmed AGDLP works exactly as designed (Accounting can access Accounting, denied elsewhere).
-* **Token Test:** Verified that adding a user to a new group requires logoff/logon to refresh the security token.
-* **Workstations OU:** Created a dedicated `Workstations` OU and moved the Windows 11 client out of the default `Computers` container.
-* **GPO Cleanup:** Broke workstation policy into separate GPOs for baseline settings, user environment, and drive mapping instead of continuing to rely on broad/default policy.
-* **Baseline GPO Test:** Deployed a workstation logon banner through `ZL-Workstation-Baseline` and confirmed computer-side GPO application to the Windows 11 client.
-* **Drive Mapping GPO:** Used Group Policy Preferences plus item-level targeting to automatically map the Accounting share for Accounting users.
-* **User Environment GPO:** Tested desktop wallpaper deployment through Group Policy. The policy applied correctly and was confirmed in the registry, although the unactivated Windows 11 VM displayed a black background instead of the image.
+* **Built the domain:** Promoted a Windows Server 2022 VM into the domain controller for `zacklab.local`
+* **Created the structure:** Built out OUs for `Accounting`, `IT`, `Sales`, `HR`, and later `Workstations`
+* **Added users:** Created some accounts manually first to learn the process, then used PowerShell to bulk-add the rest
+* **Set up security groups:** Used an AGDLP model with Global and Domain Local groups for each department
+* **Built file shares:** Created departmental shares with NTFS and share permissions assigned through groups only
+* **Fixed networking issues:** Ran into a VMware NAT subnet mismatch that broke internet access and DNS forwarding, then had to restore the DC’s static IP after DHCP overwrote it
+* **Joined a workstation to the domain:** Deployed a Windows 11 client VM and joined it successfully
+* **Solved a logon policy issue:** Standard users were getting a “sign-in method not allowed” error, which I traced back to a User Rights Assignment in Default Domain Policy using `rsop.msc`
+* **Validated access from a real client:** Logged in as department users from the Windows 11 workstation and confirmed access worked the way it was supposed to
+* **Tested token refresh behavior:** Confirmed that adding a user to a new group did not take effect until logoff/logon
+* **Cleaned up workstation management:** Created a dedicated `Workstations` OU and moved the Windows 11 client out of the default `Computers` container
+* **Separated GPOs by purpose:** Broke workstation policy into separate GPOs for baseline settings, user environment, and drive mapping instead of piling everything into broad/default policy
+* **Tested a baseline workstation GPO:** Deployed a logon banner through `ZL-Workstation-Baseline` and confirmed it applied correctly
+* **Tested drive mapping through GPO:** Used Group Policy Preferences and item-level targeting to map the Accounting share for Accounting users
+* **Tested a user environment policy:** Deployed desktop wallpaper through Group Policy, confirmed it applied in the registry, and learned that the unactivated Windows 11 VM could still make the visible result look broken
+* **Tested Linux access:** Connected a Kali VM to the ZackLab subnet, pointed DNS to the DC, resolved `dc-01.zacklab.local`, and authenticated to Windows SMB shares with `ZACKLAB\amartin`
+* **Validated cross-platform permissions:** Confirmed `amartin` could access the `Accounting` share from Linux but was denied access to `Sales`
+* **Tested a physical Linux device too:** Found that my old Lubuntu Chromebook could not reach the lab from my home network because the VMware NAT design was isolating the lab exactly the way it should
 
-## What I'm Doing Next
-* Add my MacBook to the ZackLab network.
-* Add my Chromebook/Linux device to the ZackLab network.
-* Test what works and what breaks from non-Windows devices.
-* Compare DNS, share access, and authentication behavior across Windows, macOS, and Linux.
-* Wrap up the project with final documentation and closeout notes.
+## Final Outcome
+This project gave me hands-on experience with:
 
-## The Big Takeaways (So Far)
-* PowerShell is a massive time-saver once the logic is clear.
-* Group-based access control makes permissions predictable.
-* User Rights Assignment in GPO can override local behavior fast.
-* Authentication and authorization are not the same thing.
-* Group membership changes don’t apply until a new logon.
-* DNS and networking mistakes will break *everything* upstream.
-* A clean OU/GPO structure matters once the environment starts growing.
-* Group Policy can be applying correctly even when the visible result is misleading, so tools like `gpresult`, `rsop.msc`, and the registry matter.
+* Active Directory structure and OU design
+* Manual and scripted user creation
+* DNS dependencies and basic network troubleshooting
+* Group-based access control with AGDLP
+* NTFS and share permission troubleshooting
+* Group Policy scope, precedence, and User Rights Assignment behavior
+* Windows workstation integration and client-side testing
+* Security token refresh behavior after group changes
+* Drive mapping through Group Policy Preferences
+* Accessing Windows-hosted resources from Linux with domain credentials
+
+## Big Takeaways
+* PowerShell saves a ton of time once the logic is clear
+* Group-based permissions are way easier to manage and troubleshoot than assigning access directly to users
+* DNS problems break everything upstream
+* Authentication and authorization are two different problems
+* User Rights Assignment in GPO can change workstation behavior fast
+* Group membership changes do not show up until the user gets a fresh logon token
+* A cleaner OU/GPO structure matters once the environment starts growing
+* Sometimes Group Policy is working even when the visible result makes it look broken, so tools like `gpresult`, `rsop.msc`, and registry checks matter
+* Linux did not need to be domain-joined to authenticate to Windows-hosted resources with domain credentials
+* Once I learned how to trace the chain behind a problem, the troubleshooting started making a lot more sense
+
+## Project Status
+**Complete**
+
+I’m stopping the lab here on purpose. I could keep adding more to it, but at this point it already did what I wanted it to do: give me a practical project that helped me build real experience with Active Directory, Group Policy, permissions, and client troubleshooting.
