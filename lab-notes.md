@@ -382,26 +382,171 @@ This was a much more "real world" phase than I expected. It was less about build
 
 ---
 
-## Phase 5 Status
 
-- `Workstations` OU created.
-- `W11-CL01` moved out of the default `Computers` container.
-- Workstation GPO structure separated from broad/default policy.
-- Interactive logon banner successfully deployed through `ZL-Workstation-Baseline`.
-- Accounting share mapped automatically through `ZL-Drive-Mapping`.
-- Wallpaper policy applied through `ZL-User-Environment` and confirmed in registry.
-- Windows side of the lab is now much cleaner and more manageable than it was in Phase 4.
+## Phase 6: Linux Client (Non-Windows Access)
 
-Next:
-- Add non-Windows devices to the ZackLab network.
-- Test access behavior from macOS and Linux/Chromebook.
-- Document what works, what breaks, and what differs from the Windows client experience.
+At this point, I wanted to wrap up the lab by testing how ZackLab behaved from a non-Windows machine.
+
+Originally, I planned to use my old Lubuntu Chromebook for this phase. That test turned out to be useful, but not in the way I expected. The Chromebook connected to my normal home network and could not reach the ZackLab subnet at all. Since ZackLab is still running inside VMware NAT, the physical Chromebook had no direct path to the `192.168.10.0/24` lab network.
+
+That ended up being a useful finding on its own:
+
+- the Chromebook was working normally
+- the issue was not Linux authentication
+- the real limitation was network topology
+- VMware NAT was isolating the lab from external physical devices, exactly like it was supposed to
+
+Rather than rework the whole lab around bridged networking just to force one device into it, I used a **Kali Linux VM** instead so I could stay on the same ZackLab NAT subnet and focus on the actual mixed-client testing.
+
+### Connecting The Linux VM To ZackLab
+
+Once the Kali VM was connected to the same VMware NAT network, it pulled an IP on the ZackLab subnet and was able to reach the domain controller successfully.
+
+I confirmed:
+
+- Kali had an address in the `192.168.10.0/24` range
+- it could ping `192.168.10.10`
+- routing to the DC was working
+
+At first, DNS on the Kali VM was still pointing to the VMware NAT gateway instead of the domain controller. That meant direct IP connectivity worked, but normal ZackLab name resolution did not.
+
+After updating the Linux VM to use the DC (`192.168.10.10`) as its DNS server, I was able to successfully resolve:
+
+- `dc-01.zacklab.local`
+- `zacklab.local`
+
+I also confirmed that `ping dc-01.zacklab.local` worked normally once DNS was corrected.
+
+That was an important reminder that the same rule still applied on Linux as it did everywhere else in this project:
+
+**if DNS is wrong, Active Directory breaks upstream.**
+
+### Visual Proof
+![Phase 6 Kali DNS and DC Connectivity](images/phase6-dc-connection.png)
+
+### Testing SMB Access With Domain Credentials
+
+Once name resolution was working, I moved on to the real goal of the phase: testing access to Windows-hosted shares from Linux using a ZackLab domain user.
+
+Using `smbclient`, I authenticated from Kali with:
+
+- `ZACKLAB\amartin`
+
+That successfully returned the list of available shares on `DC-01`, including:
+
+- `Accounting`
+- `Sales`
+- `NETLOGON`
+- `SYSVOL`
+- `Wallpapers`
+
+From there, I tested actual share access.
+
+Results:
+
+- `amartin` could access the **Accounting** share successfully
+- `amartin` could **not** access the **Sales** share
+
+That was the exact result I wanted.
+
+It proved that the same access-control model I built earlier in the lab was still working correctly from a non-Windows client:
+
+- Linux did not need to be domain-joined
+- AD DNS still mattered
+- Windows SMB shares were reachable cross-platform
+- domain credentials were accepted from Linux
+- departmental permissions were still enforced correctly
+
+### Visual Proof
+![Phase 6 Linux SMB Access to Accounting Share](images/phase6-fromlinux.png)
+
+### Phase 6 Outcome
+
+This phase ended up being a really strong final validation step because it showed the lab worked beyond a single Windows workstation.
+
+At the end of it, I had confirmed:
+
+- a physical Linux Chromebook on the home LAN could not reach the isolated VMware NAT lab without additional routing
+- a Linux VM on the ZackLab subnet could reach the DC normally
+- Linux name resolution worked once the VM used the domain controller for DNS
+- a domain user could authenticate from Linux to Windows SMB shares
+- Accounting access worked
+- Sales access was denied
+
+That gave me exactly what I wanted out of this phase: proof that ZackLab could support realistic mixed-client access testing without turning into an endless networking side quest.
 
 ---
 
-## Notes & Known Issues
+## Final Project Outcome
 
-- The Windows 11 lab client is still unactivated, which appears to affect wallpaper rendering/personalization behavior.
-- The wallpaper GPO applied correctly, but the desktop displayed a black background instead of the shared image.
-- Only the Accounting drive map was fully tested in this phase because the goal was to prove the design.
-- NAT networking remains in place for now. I chose not to move to bridged networking yet because it would add complexity without helping the project enough at this stage.
+At this point, ZackLab feels complete.
+
+What started as “spin up a domain controller and make some users” turned into a much more useful hands-on lab than I expected. I ended up getting practical experience with:
+
+- Active Directory structure and OU design
+- manual and scripted user creation
+- DNS dependencies
+- NAT troubleshooting
+- Group Policy scope and precedence
+- User Rights Assignment behavior
+- AGDLP permissions design
+- NTFS and share permission troubleshooting
+- Windows client integration
+- token behavior after group changes
+- workstation GPO structure
+- drive mapping through Group Policy Preferences
+- non-Windows access to Windows-hosted resources
+
+The biggest takeaway from the whole project is that most AD problems are not random once you understand the chain behind them.
+
+Almost everything I ran into eventually traced back to one of a few things:
+
+- DNS
+- scope
+- group nesting
+- NTFS/share mismatch
+- token refresh timing
+- testing the wrong target
+
+That probably sounds obvious now, but it definitely did not feel obvious when I was in the middle of breaking and fixing it.
+
+More than anything, this lab helped me get past the point of just “knowing what Active Directory is” and into actually understanding how it behaves when something goes wrong.
+
+---
+
+## Final Notes
+
+I’m intentionally stopping the project here.
+
+There is always more I *could* add — more devices, more policies, more services, deeper Linux integration, deeper automation — but at this point I think the lab already did what I needed it to do.
+
+It gave me a practical hands-on project that helped me build real troubleshooting experience in:
+
+- Windows administration
+- identity and access control
+- Group Policy
+- client behavior
+- mixed-environment support
+
+That was the goal from the beginning, and I feel like ZackLab accomplished it.
+
+---
+
+## Final Status
+
+- Domain controller built and stabilized
+- `zacklab.local` functioning correctly
+- DNS working properly
+- departmental OU structure built
+- users created manually and with PowerShell
+- AGDLP permissions model implemented and validated
+- departmental shares working with correct access control
+- Windows 11 client domain-joined and tested
+- workstation GPO structure cleaned up
+- logon banner deployed successfully
+- Accounting drive mapping deployed successfully
+- wallpaper GPO applied and verified in registry
+- Linux client validated against ZackLab
+- domain-based SMB access confirmed from Linux
+- cross-department denial confirmed from Linux
+- project complete
